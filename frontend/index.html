@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>AI Malicious URL Detector</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="dashboard">
+
+  <main>
+    <section class="hero">
+      
+      <h1 class="hero-title">
+        URL <span class="hero-highlight">Shield</span>
+      </h1>
+      <p class="hero-subtitle">
+        Scan suspicious links and see a risk score plus the reasons behind the decision.
+      </p>
+
+      <div class="hero-input-row">
+        <input type="text" id="urlInput" placeholder="Paste a URL to scan (example: https://example.com/login)">
+        <button class="primary-btn" onclick="checkURL()">Scan URL</button>
+      </div>
+    </section>
+
+    <section class="primary-row">
+      <article class="threat-card">
+        <div class="threat-header">
+          <div class="chip chip-muted">Result</div>
+          <span id="predictionBadge" class="badge badge-neutral">Awaiting scan</span>
+        </div>
+
+        <div class="threat-url" id="urlDisplay">
+          Paste a URL above to begin analysis.
+        </div>
+
+        <div class="threat-meta">
+          <span class="meta-label">Risk level</span>
+          <span id="riskLevelLabel" class="meta-value">N/A</span>
+        </div>
+
+        <div class="result-details">
+          <div id="resultDetails">
+            Enter a URL and click <span class="inline-code">Scan URL</span> to see how risky it looks.
+          </div>
+
+          <div class="reasons-title">Why this result?</div>
+          <ul id="reasonsList" class="reasons-list">
+            <li>Reasons will appear here after scanning.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="probability-card">
+        <div class="probability-header">
+          <span class="probability-title">Risk score</span>
+        </div>
+        <div class="probability-body">
+          <div class="probability-gauge">
+            <div class="gauge-ring" id="gaugeRing">
+              <div class="gauge-fill" id="gaugeFill"></div>
+              <div class="gauge-center">
+                <span id="riskValue" class="gauge-value">0%</span>
+                <span class="gauge-label">Risk score</span>
+              </div>
+            </div>
+          </div>
+          <div class="risk-meter">
+            <div id="riskFill" class="risk-fill"></div>
+            <div class="risk-gradient-overlay"></div>
+          </div>
+          <div class="risk-scale">
+            <span>Low</span>
+            <span>Medium</span>
+            <span>High</span>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
