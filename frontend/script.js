@@ -4,7 +4,7 @@
  */
 
 // ── Config ─────────────────────────────────────────────────────
-const API_BASE = "http://127.0.0.1:5000";
+const API_BASE = "https://urlsheild-api.onrender.com";
 const PREDICT_URL = `${API_BASE}/api/v1/predict`;
 const HISTORY_KEY = "urlshield_history";
 const HISTORY_LIMIT = 10;
