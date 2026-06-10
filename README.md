@@ -1,21 +1,10 @@
-<div align="center">
-
-<img src="https://img.shields.io/badge/URLShield-AI%20Threat%20Intelligence-0B1020?style=for-the-badge&logo=shield&logoColor=38BDF8" alt="URLShield" />
+<div align="left">
 
 # URLShield
 ### AI-Powered URL Threat Intelligence Platform
 
 **Detect phishing, malware, and malicious URLs in milliseconds — powered by a 99.4% accurate RandomForest model trained on 235,795 real-world URLs.**
 
-[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![Flask](https://img.shields.io/badge/Flask-3.1.0-000000?style=flat-square&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
-[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9.0-F7931E?style=flat-square&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
-[![RandomForest](https://img.shields.io/badge/Model-Random%20Forest-22C55E?style=flat-square)](https://scikit-learn.org/stable/modules/ensemble.html#forest)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
-[![Deployed on Render](https://img.shields.io/badge/Deployed-Render-46E3B7?style=flat-square&logo=render&logoColor=white)](https://urlsheild.onrender.com)
-[![Cybersecurity](https://img.shields.io/badge/Domain-Cybersecurity-EF4444?style=flat-square)](https://en.wikipedia.org/wiki/Phishing)
-[![License: MIT](https://img.shields.io/badge/License-MIT-FACC15?style=flat-square)](LICENSE)
-[![Open Source](https://img.shields.io/badge/Open%20Source-%E2%9D%A4-ff69b4?style=flat-square)](https://github.com)
 
 ---
 
