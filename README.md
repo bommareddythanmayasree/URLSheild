@@ -1,177 +1,170 @@
-🛡️ URLShield – AI Malicious URL Detection Platform
+# 🛡️ URLShield — AI-Powered URL Threat Intelligence
 
-URLShield is an AI-powered cybersecurity web application that detects malicious, phishing, or suspicious URLs using machine learning.
-Users can paste any link and instantly receive a risk score, threat classification, and explanation of why the URL is considered safe or dangerous.
+URLShield is a production-quality cybersecurity web application that detects malicious, phishing, and suspicious URLs using a trained RandomForest ML model. It analyses 29 URL-derived signals in real time and provides a risk score, classification, and human-readable AI explanations.
 
-This project helps users avoid phishing attacks, scam websites, and malicious links by providing fast and intelligent URL analysis.
+---
 
-🚀 Features
+## ✨ Features
 
-✅ Detects malicious and phishing URLs
-✅ Provides a risk score for each URL
-✅ Explains why a URL is suspicious
-✅ Fast AI-based prediction system
-✅ Simple web interface for testing links
-✅ Helps prevent cybersecurity threats and scams
+- **AI Detection** — RandomForest classifier trained on 235,795 labeled URLs (99.57% accuracy, F1 0.9949)
+- **29 URL Features** — entropy, subdomain depth, IP detection, punycode, suspicious TLDs, brand spoofing, and more
+- **3-Level Classification** — Safe · Suspicious · Malicious with risk score and confidence
+- **Explainable AI** — rule-based reasoning engine explains every prediction in plain English
+- **Feature Analysis Panel** — shows all 29 extracted signals with visual bars
+- **Scan History** — last 10 scans persisted in browser localStorage
+- **Modern Cybersecurity UI** — dark SaaS dashboard with animated risk gauge
+- **Production Ready** — Docker, gunicorn, rate limiting, structured logging, env config
 
-🧠 How It Works
+---
 
-User enters a URL in the web interface
+## 🏗️ Project Structure
 
-The system extracts important URL features
-
-The trained Machine Learning model analyzes the features
-
-The model predicts whether the URL is:
-
-Safe
-
-Suspicious
-
-Malicious
-
-The system returns:
-
-Risk score
-
-Classification
-
-Threat explanation
-
-🏗️ Tech Stack
-Frontend
-
-HTML
-
-CSS
-
-JavaScript
-
-Backend
-
-Python
-
-Flask
-
-Machine Learning
-
-Scikit-learn
-
-Pandas
-
-NumPy
-
-Other Tools
-
-Feature extraction for URLs
-
-Cybersecurity dataset for training
-
-📂 Project Structure
+```
 URLShield/
-│
-├── app.py                # Flask backend server
-├── model.pkl             # Trained ML model
-├── feature_extraction.py # URL feature extractor
-│
-├── templates/
-│   └── index.html        # Web interface
-│
-├── static/
-│   └── styles.css        # Styling
-│
-├── dataset/              # Training dataset
-│
-└── README.md
-⚙️ Installation
+├── backend/
+│   ├── app.py                 # Flask API — routes, prediction logic
+│   ├── config.py              # Centralised config via env variables
+│   ├── feature_extraction.py  # 29-feature URL engineering module
+│   ├── train_model.py         # Training pipeline with full evaluation
+│   ├── url_model.pkl          # Trained RandomForest model (generated)
+│   ├── model_metrics.json     # Training metrics (generated)
+│   └── test_api.py            # API smoke tests
+├── dataset/
+│   └── phishing_urls.csv      # 235,795-row training dataset
+├── frontend/
+│   ├── index.html             # Single-page cybersecurity dashboard
+│   ├── script.js              # Scan logic, feature display, history
+│   └── style.css              # Dark SaaS theme
+├── .env.example               # Environment variable template
+├── Dockerfile                 # Production container
+├── docker-compose.yml         # Full-stack local deployment
+├── nginx.conf                 # Frontend + API proxy config
+└── requirements.txt           # Pinned Python dependencies
+```
 
-Clone the repository:
+---
 
-git clone https://github.com/bommareddythanmayasree/URLSheild.git
-cd URLSheild
+## 🚀 Quick Start (Local)
 
-Install dependencies:
-
+### 1. Install dependencies
+```bash
 pip install -r requirements.txt
+```
 
-Run the application:
+### 2. Train the model (first run only)
+```bash
+cd backend
+python train_model.py
+```
 
+### 3. Start the API
+```bash
+cd backend
 python app.py
+```
 
-Open in browser:
+### 4. Open the frontend
+Open `frontend/index.html` in your browser, or serve it with any static server.
 
-http://127.0.0.1:5000
-📊 Machine Learning Model
+---
 
-The system uses a supervised machine learning classifier trained on malicious and legitimate URLs.
+## 🐳 Docker Deployment
 
-The model analyzes features such as:
+```bash
+# Build and start both services
+docker compose up --build
 
-URL length
+# Frontend: http://localhost:3000
+# Backend:  http://localhost:8000
+```
 
-Presence of suspicious characters
+---
 
-Number of subdomains
+## ☁️ Cloud Deployment
 
-Use of HTTPS
+### Render (Backend)
+1. Connect your GitHub repository to [render.com](https://render.com)
+2. Create a new **Web Service** pointing to the repo root
+3. Set **Build Command**: `pip install -r requirements.txt && cd backend && python train_model.py`
+4. Set **Start Command**: `cd backend && gunicorn app:app`
+5. Add environment variables from `.env.example`
 
-Special symbols
+### Vercel / GitHub Pages (Frontend)
+1. Update `API_BASE` in `frontend/script.js` to your Render service URL
+2. Deploy the `frontend/` folder as a static site
 
-Domain patterns
+---
 
-These features help the model identify phishing and scam websites.
+## ⚙️ Environment Variables
 
-🖥️ Example
+Copy `.env.example` to `.env` and configure:
 
-Input URL:
+| Variable | Default | Description |
+|---|---|---|
+| `FLASK_DEBUG` | `false` | Enable debug mode (dev only) |
+| `MODEL_PATH` | `url_model.pkl` | Path to trained model |
+| `DATASET_PATH` | `../dataset/phishing_urls.csv` | Dataset path |
+| `ALLOWED_ORIGINS` | `*` | CORS allowed origins |
+| `RATE_LIMIT_PREDICT` | `60 per minute` | Per-IP rate limit |
+| `LOG_LEVEL` | `INFO` | Logging verbosity |
+| `PORT` | `5000` | Server port |
 
-http://paypal-secure-login.verify-account.com
+---
 
-Output:
+## 🧠 ML Model
 
-Risk Score: 92%
-Prediction: Malicious URL
-Reason: Suspicious domain pattern and excessive subdomains
-🌍 Real World Impact
+| Metric | Value |
+|---|---|
+| Algorithm | RandomForestClassifier (300 trees) |
+| Training samples | 188,636 |
+| Test samples | 47,159 |
+| Accuracy | 99.57% |
+| F1 Score (malicious) | 0.9949 |
+| CV F1 Mean | 0.9963 ± 0.0002 |
+| Features | 29 URL-derived signals |
 
-Cyber attacks are increasing rapidly and phishing links are one of the most common attack methods.
+**Top features by importance:** IsHTTPS, URLDepth, NoOfDegitsInURL, DigitRatioInURL, URLLength, URLEntropy
 
-URLShield helps:
+---
 
-Students
+## 🔒 Security
 
-Internet users
+- Rate limiting (60 req/min per IP via Flask-Limiter)
+- CORS origin restriction
+- Input validation (length, encoding)
+- No debug mode in production
+- Non-root Docker user
+- Structured logging (no stack traces in responses)
 
-Organizations
+---
 
-Cybersecurity learners
+## 📡 API Reference
 
-to detect unsafe links before visiting them.
+### `POST /api/v1/predict`
+```json
+// Request
+{ "url": "https://example.com/login" }
 
-📌 Future Improvements
+// Response
+{
+  "prediction": "Safe | Suspicious | Malicious",
+  "risk_score": 0.87,
+  "risk_level": "Low | Medium | Critical",
+  "confidence": 87.0,
+  "explanations": ["..."],
+  "features": { "URLLength": 32, "IsHTTPS": 1, ... }
+}
+```
 
-Deep learning based URL detection
+### `GET /health`
+```json
+{ "status": "ok", "model_loaded": true, "version": "v1" }
+```
 
-Chrome browser extension
+### `GET /api/v1/metrics`
+Returns full training metrics (accuracy, F1, confusion matrix, feature importance).
 
-Real-time URL scanning
+---
 
-Domain reputation APIs
-
-Community reporting system
-
-🤝 Contributing
-
-Contributions are welcome!
-
-Fork the repository
-
-Create a feature branch
-
-Commit changes
-
-Submit a pull request
-
-📜 License
-
-This project is licensed under the MIT License.
+## 📜 License
+MIT License

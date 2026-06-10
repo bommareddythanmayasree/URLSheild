@@ -1,157 +1,291 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+"""
+app.py — URLShield Flask application entry point.
+Registers blueprints, extensions, and global error handlers.
+"""
+
+import logging
+import os
+import json
+
 import joblib
 import pandas as pd
+from flask import Flask, jsonify
+from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
+from config import Config
 from feature_extraction import extract_features
 
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging.basicConfig(
+    level=getattr(logging, Config.LOG_LEVEL, logging.INFO),
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("urlshield")
+
+# ---------------------------------------------------------------------------
+# Load ML model once at startup
+# ---------------------------------------------------------------------------
+def _load_model():
+    path = Config.MODEL_PATH
+    if not os.path.exists(path):
+        logger.error("Model file not found: %s", path)
+        raise FileNotFoundError(f"Model file not found: {path}")
+    obj = joblib.load(path)
+    if not (isinstance(obj, tuple) and len(obj) == 2):
+        raise ValueError("Model file must contain a (model, feature_columns) tuple.")
+    model, feature_columns = obj
+    logger.info("Model loaded from %s — %d features", path, len(feature_columns))
+    return model, list(feature_columns)
+
+
+def _load_metrics():
+    path = Config.METRICS_PATH
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return {}
+
+
+try:
+    MODEL, FEATURE_COLUMNS = _load_model()
+    MODEL_METRICS = _load_metrics()
+    MODEL_LOADED = True
+except Exception as exc:
+    logger.critical("Failed to load model at startup: %s", exc)
+    MODEL = None
+    FEATURE_COLUMNS = []
+    MODEL_METRICS = {}
+    MODEL_LOADED = False
+
+# ---------------------------------------------------------------------------
+# Flask app + extensions
+# ---------------------------------------------------------------------------
 app = Flask(__name__)
-CORS(app)
+app.config["SECRET_KEY"] = Config.SECRET_KEY
 
-model, feature_names = joblib.load("url_model.pkl")
+CORS(app, origins=Config.ALLOWED_ORIGINS)
 
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[Config.RATE_LIMIT_DEFAULT],
+    storage_uri="memory://",
+)
 
-def _load_neutral_defaults(feature_names_index) -> pd.Series:
-    """
-    Compute per-feature neutral defaults from the training dataset (median values),
-    so missing features at inference don't collapse to all-zeros.
-    """
-    try:
-        df = pd.read_csv("../dataset/phishing_urls.csv")
-        numeric_df = df.select_dtypes(include=["int64", "float64"])
-        # Keep only the exact feature schema used during training (and in the same order)
-        aligned = numeric_df.reindex(columns=list(feature_names_index))
-        medians = aligned.median(numeric_only=True)
-        # If any column is entirely missing/NaN, fall back to 0
-        medians = medians.fillna(0)
-        return medians
-    except Exception as e:
-        print(f"[DEBUG] Failed to load neutral defaults: {e}")
-        return pd.Series([0] * len(feature_names_index), index=list(feature_names_index))
+# ---------------------------------------------------------------------------
+# Prediction helpers
+# ---------------------------------------------------------------------------
 
-
-NEUTRAL_DEFAULTS = _load_neutral_defaults(feature_names)
+SUSPICIOUS_KEYWORDS = [
+    "login", "verify", "update", "secure", "account", "banking",
+    "confirm", "password", "signin", "paypal", "webscr", "ebay",
+    "amazon", "billing", "support", "service", "alert",
+]
 
 
 def _generate_explanations(url_features: dict, risk_score: float, prediction: str) -> list[str]:
-    """
-    Phishing explanation engine: concise, security-focused rules based on extracted URL features.
-    """
-    explanations: list[str] = []
+    """Rule-based human-readable explanations grounded in extracted features."""
+    explanations = []
 
     url_length = int(url_features.get("URLLength", 0) or 0)
-    domain_dots = int(url_features.get("domain_dots", 0) or 0)
-    domain_digits = int(url_features.get("domain_digits", 0) or 0)
-    hyphens = int(url_features.get("num_hyphens_full", 0) or 0)
-
-    kw_found = url_features.get("suspicious_keywords_found") or []
+    entropy = float(url_features.get("URLEntropy", 0) or 0)
+    no_subdomains = int(url_features.get("NoOfSubDomain", 0) or 0)
+    domain_digits = int(url_features.get("_domain_digits", 0) or 0)
+    hyphens = int(url_features.get("NoOfHyphensInURL", 0) or 0)
+    is_ip = int(url_features.get("IsIPAddress", 0) or 0)
+    has_punycode = int(url_features.get("HasPunycode", 0) or 0)
+    suspicious_tld = int(url_features.get("IsSuspiciousTLD", 0) or 0)
+    brand_subdomain = int(url_features.get("BrandInSubdomain", 0) or 0)
+    at_sign = int(url_features.get("HasAtSign", 0) or 0)
+    hex_encoding = int(url_features.get("HasHexEncoding", 0) or 0)
+    kw_found = url_features.get("_suspicious_keywords_found") or []
     kw_found = [str(k) for k in kw_found][:3]
+    is_https = int(url_features.get("IsHTTPS", 0) or 0)
 
-    # Rule-based signals (requested examples)
-    if url_length > 60:
-        explanations.append("The URL is unusually long, which is common in phishing links.")
-
-    if domain_dots > 3:
-        explanations.append("Multiple subdomains detected, which can indicate phishing.")
-
+    if is_ip:
+        explanations.append("URL uses a raw IP address instead of a domain name — a common phishing technique.")
+    if has_punycode:
+        explanations.append("Punycode encoding detected; domain may be impersonating a well-known brand.")
+    if brand_subdomain:
+        explanations.append("A trusted brand name appears in the subdomain, not the main domain — a spoofing signal.")
+    if url_length > 75:
+        explanations.append(f"URL is unusually long ({url_length} chars); phishing URLs are often obfuscated with extra path segments.")
+    if entropy > 4.5:
+        explanations.append(f"High URL entropy ({entropy:.2f}) suggests random or obfuscated characters.")
+    if no_subdomains > 2:
+        explanations.append(f"{no_subdomains} subdomain levels detected; excessive subdomains can mask the real domain.")
     if kw_found:
-        explanations.append(f"The URL contains phishing-related keyword(s): {', '.join(kw_found)}.")
-    else:
-        explanations.append("No suspicious keywords detected in the URL.")
-
+        explanations.append(f"Phishing-related keyword(s) found: {', '.join(kw_found)}.")
+    if suspicious_tld:
+        explanations.append("The top-level domain (TLD) is commonly associated with spam or phishing.")
     if domain_digits > 0:
-        explanations.append("Presence of digits in the domain can indicate suspicious links.")
-    else:
-        explanations.append("No digits detected in the domain.")
+        explanations.append("Digits in the domain name can indicate a dynamically generated or fake domain.")
+    if hyphens > 3:
+        explanations.append("Excessive hyphens in the URL are used to mimic legitimate domain names.")
+    if at_sign:
+        explanations.append("@ symbol detected in the URL; everything before @ is ignored by browsers, used to mislead.")
+    if hex_encoding:
+        explanations.append("Heavy percent-encoding detected, which can obfuscate malicious path segments.")
+    if not is_https and prediction.lower() != "safe":
+        explanations.append("Connection is not encrypted (HTTP), increasing risk of credential interception.")
 
-    if hyphens > 2:
-        explanations.append("Multiple hyphens detected, often used to mimic legitimate domains.")
-    else:
-        explanations.append("Domain does not use excessive hyphens.")
-
-    # Positive/neutral structure explanations (when Safe)
+    # Positive signals for safe URLs
     if prediction.lower() == "safe":
-        if url_length <= 60:
-            explanations.append("URL length is typical.")
-        if domain_dots <= 3:
-            explanations.append("Domain structure appears normal.")
+        if is_https:
+            explanations.append("URL uses HTTPS — encrypted connection.")
+        if url_length <= 75:
+            explanations.append("URL length is within normal range.")
+        if no_subdomains <= 1:
+            explanations.append("Domain structure appears straightforward.")
 
-    # Combine ML probability with rules (concise)
-    if risk_score >= 0.7:
-        explanations.append("ML risk score is high; treat this link as suspicious until verified.")
-    elif risk_score >= 0.3:
-        explanations.append("ML risk score is moderate; verify the sender and domain before trusting this link.")
+    if risk_score >= 0.75:
+        explanations.append("ML model assigns high malicious probability — treat this link with extreme caution.")
+    elif risk_score >= 0.40:
+        explanations.append("ML model assigns moderate risk — verify the domain and sender before proceeding.")
     else:
-        explanations.append("ML risk score is low; no strong phishing signals were detected.")
+        explanations.append("ML model assigns low risk — no strong phishing patterns detected in the URL.")
 
-    # Keep concise
-    return explanations[:7]
-
-
-@app.route("/")
-def home():
-    return "Malicious URL Detection API is running 🚀"
+    return explanations[:8]
 
 
-@app.route("/predict", methods=["POST"])
-def predict():
-    data = request.get_json(silent=True) or {}
-
-    url = data.get("url")
-    if not url:
-        return jsonify({"error": "Missing 'url' in request body."}), 400
-
-    # Extract URL-based phishing features
+def _run_prediction(url: str) -> dict:
+    """Core prediction logic. Returns the full result dict."""
     url_features = extract_features(url)
 
-    # Build feature vector aligned EXACTLY with the model's expected feature order.
-    # Start from neutral defaults computed from training data, then override with URL-only fields.
-    features_df = pd.DataFrame([NEUTRAL_DEFAULTS.reindex(list(feature_names)).to_list()], columns=feature_names)
+    # Build aligned feature vector (only model input columns, in training order)
+    row = {col: url_features.get(col, 0) for col in FEATURE_COLUMNS}
+    features_df = pd.DataFrame([row], columns=FEATURE_COLUMNS)
 
-    for key, value in url_features.items():
-        if key in features_df.columns:
-            features_df.at[0, key] = value
+    # Malicious probability
+    class_list = list(getattr(MODEL, "classes_", []))
+    malicious_idx = class_list.index(0) if 0 in class_list else 0
+    prob = float(MODEL.predict_proba(features_df)[0][malicious_idx])
 
-    # Compute malicious probability from predict_proba (single source of truth)
-    class_list = list(getattr(model, "classes_", []))
-    # Dataset uses label 0 for malicious, 1 for safe; we want probability of malicious.
-    malicious_index = class_list.index(0) if 0 in class_list else 0
-    prob = float(model.predict_proba(features_df)[0][malicious_index])
-
-    # Threshold-based classification using only the probability (no model.predict())
-    if prob >= 0.75:
-        prediction = "Malicious"
-        risk_level = "Critical"
-    elif prob >= 0.40:
-        prediction = "Suspicious"
-        risk_level = "Medium"
+    # Classification
+    if prob >= 0.85:
+        prediction, risk_level = "Malicious", "Critical"
+    elif prob >= 0.55:
+        prediction, risk_level = "Suspicious", "Medium"
     else:
-        prediction = "Safe"
-        risk_level = "Low"
+        prediction, risk_level = "Safe", "Low"
 
     explanations = _generate_explanations(url_features, prob, prediction)
 
-    # Debug logs
-    print("[DEBUG] URL:", url)
-    print("[DEBUG] Extracted features:", url_features)
-    print("[DEBUG] Extracted features:", url_features)
-    print("[DEBUG] Malicious probability:", prob)
-    print("[DEBUG] Chosen label:", prediction)
-    print("[DEBUG] Explanations:", explanations)
+    # Build feature display dict (strip _ prefixed keys)
+    feature_display = {
+        k: v for k, v in url_features.items() if not k.startswith("_")
+    }
 
-    return jsonify(
-        {
-            "prediction": prediction,
-            "risk_score": prob,
-            "risk_level": risk_level,
-            "explanations": explanations,
-            # Backward compatibility for existing frontend
-            "reasons": explanations,
-            # Optional: keep confidence for UI meters
-            "confidence": prob * 100,
-        }
-    )
+    logger.info("Prediction: url=%s prediction=%s score=%.3f", url[:80], prediction, prob)
 
+    return {
+        "prediction": prediction,
+        "risk_score": round(prob, 4),
+        "risk_level": risk_level,
+        "confidence": round(prob * 100, 2),
+        "explanations": explanations,
+        "reasons": explanations,          # backward compat
+        "features": feature_display,      # new: feature analysis for UI
+    }
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+@app.route("/")
+def home():
+    return jsonify({
+        "service": "URLShield API",
+        "version": Config.API_VERSION,
+        "status": "running",
+        "model_loaded": MODEL_LOADED,
+    })
+
+
+@app.route("/health")
+def health():
+    return jsonify({
+        "status": "ok" if MODEL_LOADED else "degraded",
+        "model_loaded": MODEL_LOADED,
+        "version": Config.API_VERSION,
+    }), (200 if MODEL_LOADED else 503)
+
+
+@app.route("/api/v1/metrics")
+def metrics():
+    """Return model training metrics (accuracy, F1, etc.)."""
+    if not MODEL_METRICS:
+        return jsonify({"error": "Metrics not available."}), 404
+    return jsonify(MODEL_METRICS)
+
+
+@app.route("/predict", methods=["POST"])
+@app.route("/api/v1/predict", methods=["POST"])
+@limiter.limit(Config.RATE_LIMIT_PREDICT)
+def predict():
+    from flask import request
+
+    if not MODEL_LOADED:
+        return jsonify({"error": "Model not loaded. Check server logs."}), 503
+
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+
+    # --- Input validation ---
+    if not url:
+        return jsonify({"error": "Missing 'url' in request body."}), 400
+    if len(url) > 2048:
+        return jsonify({"error": "URL exceeds maximum length of 2048 characters."}), 400
+    if not any(url.startswith(s) for s in ("http://", "https://", "ftp://")) and "://" not in url:
+        # Allow schemeless — feature extractor prepends http://
+        pass
+
+    try:
+        result = _run_prediction(url)
+        return jsonify(result)
+    except Exception as exc:
+        logger.exception("Prediction failed for url=%s", url[:80])
+        return jsonify({"error": "Prediction failed. Please try again."}), 500
+
+
+# ---------------------------------------------------------------------------
+# Global error handlers
+# ---------------------------------------------------------------------------
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"error": "Endpoint not found."}), 404
+
+
+@app.errorhandler(405)
+def method_not_allowed(e):
+    return jsonify({"error": "Method not allowed."}), 405
+
+
+@app.errorhandler(429)
+def rate_limit_exceeded(e):
+    return jsonify({"error": "Rate limit exceeded. Please slow down."}), 429
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    logger.error("Unhandled server error: %s", e)
+    return jsonify({"error": "Internal server error."}), 500
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        debug=Config.DEBUG,
+    )

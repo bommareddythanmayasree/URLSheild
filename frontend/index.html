@@ -1,92 +1,196 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-<title>AI Malicious URL Detector</title>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>URLShield — AI Threat Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
 
-<div class="dashboard">
-
-  <main>
-    <section class="hero">
-      
-      <h1 class="hero-title">
-        URL <span class="hero-highlight">Shield</span>
-      </h1>
-      <p class="hero-subtitle">
-        Scan suspicious links and see a risk score plus the reasons behind the decision.
-      </p>
-
-      <div class="hero-input-row">
-        <input type="text" id="urlInput" placeholder="Paste a URL to scan (example: https://example.com/login)">
-        <button class="primary-btn" onclick="checkURL()">Scan URL</button>
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<header class="header" role="banner">
+  <div class="header-inner">
+    <div class="logo" aria-label="URLShield home">
+      <div class="logo-icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
       </div>
-    </section>
+      <span class="logo-text">URL<span class="logo-accent">Shield</span></span>
+    </div>
+    <div class="header-badge" aria-label="AI-powered security tool">
+      <span class="pulse-dot" aria-hidden="true"></span>
+      AI-Powered Threat Detection
+    </div>
+  </div>
+</header>
 
-    <section class="primary-row">
-      <article class="threat-card">
-        <div class="threat-header">
-          <div class="chip chip-muted">Result</div>
-          <span id="predictionBadge" class="badge badge-neutral">Awaiting scan</span>
+<!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
+<main class="main" id="main-content">
+
+  <!-- ── Hero ── -->
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-eyebrow" aria-hidden="true">
+      <span class="eyebrow-dot"></span>
+      Real-time URL Intelligence
+    </div>
+    <h1 class="hero-title" id="hero-title">
+      Detect Malicious URLs<br/>
+      <span class="hero-gradient">Before They Strike</span>
+    </h1>
+    <p class="hero-subtitle">
+      Paste any link. URLShield's ML model analyses 29 URL signals in milliseconds and tells you exactly why a link is safe, suspicious, or malicious.
+    </p>
+
+    <!-- Scanner input -->
+    <div class="scanner-card" role="search" aria-label="URL scanner">
+      <div class="scanner-input-wrap">
+        <span class="scanner-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+        </span>
+        <input
+          type="url"
+          id="urlInput"
+          class="scanner-input"
+          placeholder="https://example.com/login"
+          aria-label="Enter a URL to scan"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="scan-btn" id="scanBtn" onclick="checkURL()" aria-label="Scan URL for threats">
+          <span class="scan-btn-text">Scan URL</span>
+          <span class="scan-btn-spinner" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="scanner-hint">Press <kbd>Enter</kbd> to scan · Results appear instantly below</p>
+    </div>
+  </section>
+
+  <!-- ── Results (hidden until scan) ── -->
+  <div class="results-area" id="resultsArea" aria-live="polite" aria-atomic="true">
+
+    <!-- Top row: Verdict + Risk Gauge -->
+    <div class="results-top-grid">
+
+      <!-- Verdict card -->
+      <article class="card verdict-card" id="verdictCard" aria-label="Scan verdict">
+        <div class="card-header">
+          <span class="card-label">Threat Analysis</span>
+          <span class="verdict-badge" id="verdictBadge" aria-live="polite">—</span>
         </div>
 
-        <div class="threat-url" id="urlDisplay">
-          Paste a URL above to begin analysis.
-        </div>
+        <div class="scanned-url" id="scannedUrl" aria-label="Scanned URL">—</div>
 
-        <div class="threat-meta">
-          <span class="meta-label">Risk level</span>
-          <span id="riskLevelLabel" class="meta-value">N/A</span>
-        </div>
-
-        <div class="result-details">
-          <div id="resultDetails">
-            Enter a URL and click <span class="inline-code">Scan URL</span> to see how risky it looks.
+        <div class="verdict-meta-row">
+          <div class="verdict-meta-item">
+            <span class="meta-key">Risk Level</span>
+            <span class="meta-val" id="riskLevelVal">—</span>
           </div>
+          <div class="verdict-meta-item">
+            <span class="meta-key">Confidence</span>
+            <span class="meta-val" id="confidenceVal">—</span>
+          </div>
+          <div class="verdict-meta-item">
+            <span class="meta-key">HTTPS</span>
+            <span class="meta-val" id="httpsVal">—</span>
+          </div>
+        </div>
 
-          <div class="reasons-title">Why this result?</div>
-          <ul id="reasonsList" class="reasons-list">
-            <li>Reasons will appear here after scanning.</li>
-          </ul>
+        <div class="verdict-summary" id="verdictSummary" aria-label="Verdict summary">
+          Run a scan to see results here.
         </div>
       </article>
 
-      <article class="probability-card">
-        <div class="probability-header">
-          <span class="probability-title">Risk score</span>
+      <!-- Risk gauge card -->
+      <article class="card gauge-card" aria-label="Risk score gauge">
+        <div class="card-header">
+          <span class="card-label">Risk Score</span>
         </div>
-        <div class="probability-body">
-          <div class="probability-gauge">
-            <div class="gauge-ring" id="gaugeRing">
-              <div class="gauge-fill" id="gaugeFill"></div>
-              <div class="gauge-center">
-                <span id="riskValue" class="gauge-value">0%</span>
-                <span class="gauge-label">Risk score</span>
-              </div>
-            </div>
+        <div class="gauge-wrap">
+          <svg class="gauge-svg" viewBox="0 0 200 130" aria-hidden="true">
+            <!-- Track arc -->
+            <path class="gauge-track" d="M 20 115 A 80 80 0 0 1 180 115" stroke-linecap="round"/>
+            <!-- Value arc -->
+            <path class="gauge-arc" id="gaugeArc" d="M 20 115 A 80 80 0 0 1 180 115" stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="251.2"/>
+            <!-- Tick marks -->
+            <line class="gauge-tick" x1="20" y1="115" x2="26" y2="115" transform="rotate(-90 100 115)"/>
+            <line class="gauge-tick" x1="20" y1="115" x2="24" y2="115" transform="rotate(-45 100 115)"/>
+            <line class="gauge-tick" x1="20" y1="115" x2="24" y2="115" transform="rotate(0 100 115)"/>
+            <line class="gauge-tick" x1="20" y1="115" x2="24" y2="115" transform="rotate(45 100 115)"/>
+            <line class="gauge-tick" x1="20" y1="115" x2="26" y2="115" transform="rotate(90 100 115)"/>
+          </svg>
+          <div class="gauge-center-text">
+            <span class="gauge-percent" id="gaugePercent" aria-label="Risk score percentage">0%</span>
+            <span class="gauge-sub">risk score</span>
           </div>
-          <div class="risk-meter">
-            <div id="riskFill" class="risk-fill"></div>
-            <div class="risk-gradient-overlay"></div>
+        </div>
+        <div class="risk-bar-wrap">
+          <div class="risk-bar-track">
+            <div class="risk-bar-fill" id="riskBarFill" style="width:0%"></div>
           </div>
-          <div class="risk-scale">
-            <span>Low</span>
-            <span>Medium</span>
-            <span>High</span>
+          <div class="risk-bar-labels">
+            <span>Safe</span><span>Suspicious</span><span>Malicious</span>
           </div>
         </div>
       </article>
-    </section>
-  </main>
 
-</div>
+    </div>
+
+    <!-- AI Explanations -->
+    <article class="card explanations-card" id="explanationsCard" aria-label="AI explanations">
+      <div class="card-header">
+        <span class="card-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9.663 17h4.673M12 3v1m6.364 1.636-.707.707M21 12h-1M4 12H3m3.343-5.657-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+          Why this result?
+        </span>
+      </div>
+      <ul class="explanations-list" id="explanationsList" aria-label="AI reasoning">
+        <li class="expl-placeholder">Scan a URL to see the AI's reasoning.</li>
+      </ul>
+    </article>
+
+    <!-- Feature Analysis -->
+    <article class="card features-card" aria-label="Extracted URL features">
+      <div class="card-header">
+        <span class="card-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Feature Analysis
+        </span>
+        <span class="card-sub">29 URL signals extracted</span>
+      </div>
+      <div class="features-grid" id="featuresGrid" aria-label="URL feature values">
+        <div class="feat-placeholder">Feature values will appear after scanning.</div>
+      </div>
+    </article>
+
+    <!-- Recent History -->
+    <article class="card history-card" aria-label="Recent scan history">
+      <div class="card-header">
+        <span class="card-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Recent Scans
+        </span>
+        <button class="clear-btn" id="clearHistoryBtn" onclick="clearHistory()" aria-label="Clear scan history">Clear</button>
+      </div>
+      <div class="history-list" id="historyList" aria-label="Previous scans" role="list">
+        <div class="history-placeholder">Your last 10 scans will appear here.</div>
+      </div>
+    </article>
+
+  </div><!-- /results-area -->
+
+</main>
+
+<!-- ═══════════════════════════ FOOTER ═══════════════════════════ -->
+<footer class="footer" role="contentinfo">
+  <p>URLShield — AI-Powered URL Threat Intelligence &nbsp;·&nbsp; <span id="modelInfo">ML Model Ready</span></p>
+</footer>
 
 <script src="script.js"></script>
-
 </body>
 </html>
