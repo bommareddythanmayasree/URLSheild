@@ -1006,12 +1006,10 @@ This project was built as a complete, production-quality implementation of every
 
 ## Author
 
-Built with purpose by **Thanmaya Sree BommaReddy**
+Built by **Thanmaya Sree BommaReddy**
 
 [![GitHub](https://img.shields.io/badge/GitHub-@bommareddythanmayasree-181717?style=flat-square&logo=github)](https://github.com/bommareddythanmayasree)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=flat-square&logo=linkedin)](https://linkedin.com/in/your-profile)
-[![Portfolio](https://img.shields.io/badge/Portfolio-Visit-38BDF8?style=flat-square)](https://your-portfolio.com)
-[![Email](https://img.shields.io/badge/Email-Contact-EF4444?style=flat-square&logo=gmail)](mailto:your@email.com)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=flat-square&logo=linkedin)](https://www.linkedin.com/in/thanmaya-sree-bommareddy-947a96308/)
 
 ---
 
